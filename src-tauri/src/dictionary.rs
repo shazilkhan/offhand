@@ -1,4 +1,4 @@
-//! The user's dictionary: words Sotto should always spell their way, plus
+//! The user's dictionary: words Offhand should always spell their way, plus
 //! what speech recognition sometimes writes instead. Stored next to
 //! settings.json.
 

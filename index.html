@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sotto</title>
+    <title>Offhand</title>
     <script type="module" src="/src/main.ts"></script>
   </head>
   <body>
     <div class="app">
       <header class="titlebar" data-tauri-drag-region>
-        <span class="lockup" data-tauri-drag-region aria-label="Sotto">
-          <span class="word" data-tauri-drag-region>sotto</span>
+        <span class="lockup" data-tauri-drag-region aria-label="Offhand">
+          <span class="word" data-tauri-drag-region>offhand</span>
           <span class="bar" data-tauri-drag-region></span>
         </span>
         <div class="controls">
@@ -95,7 +95,7 @@
           <section class="view" id="view-dictionary" aria-labelledby="dict-h" hidden>
             <header class="page-head">
               <h1 id="dict-h">Dictionary</h1>
-              <p>Names and terms Sotto should always spell your way. If it mishears one, add what it writes instead, and Sotto will swap it every time.</p>
+              <p>Names and terms Offhand should always spell your way. If it mishears one, add what it writes instead, and Offhand will swap it every time.</p>
             </header>
             <form class="add" id="dict-form" aria-label="Add a word">
               <label class="field grow1"><span class="label">Word</span><input type="text" id="dict-word" placeholder="Supabase" autocomplete="off" /></label>
@@ -147,6 +147,7 @@
                   <span class="name">Show the pill</span>
                   <span class="seg" role="group" aria-label="Show the pill">
                     <button type="button" data-pill="always">Always</button>
+                    <button type="button" data-pill="windowed">Not in fullscreen</button>
                     <button type="button" data-pill="talking">While talking</button>
                     <button type="button" data-pill="never">Never</button>
                   </span>
@@ -221,7 +222,7 @@
                 <p class="muted note" id="clean-note"></p>
                 <div id="smart-key" hidden>
                   <div class="row spaced wrap">
-                    <span class="name">Anthropic API key<small>Smart uses Claude Haiku with your own key. It's kept in Windows Credential Manager, not in Sotto's files.</small></span>
+                    <span class="name">Anthropic API key<small>Smart uses Claude Haiku with your own key. It's kept in Windows Credential Manager, not in Offhand's files.</small></span>
                     <span class="inline gap20" id="key-entry">
                       <input type="password" class="keyin" id="key-input" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" aria-label="Anthropic API key" />
                       <button type="button" class="tbtn" id="key-save">Save</button>
@@ -236,7 +237,7 @@
                   <p class="muted small note" id="key-note" hidden></p>
                 </div>
                 <label class="row spaced">
-                  <span class="name">Learn from my corrections<small>When you fix a name or term before sending (Neve to Niamh, tory to tauri, or Nifty fifty to Nifty 50), Sotto adds it to your Dictionary. It reads only the text box you dictated into, until you send (at most 2 minutes after your last dictation), and never password fields.</small></span>
+                  <span class="name">Learn from my corrections<small>When you fix a name or term before sending (Neve to Niamh, tory to tauri, or Nifty fifty to Nifty 50), Offhand adds it to your Dictionary. It reads only the text box you dictated into, until you send (at most 2 minutes after your last dictation), and never password fields.</small></span>
                   <input type="checkbox" class="sw" data-toggle="learnCorrections" />
                 </label>
               </div>
@@ -272,8 +273,8 @@
               <div class="sec-h"><h2 id="s-about">About</h2></div>
               <div class="sec-b">
                 <div class="row">
-                  <span class="name"><span id="version">Sotto</span><small>Speech model: NVIDIA Parakeet TDT 0.6B v3, CC BY 4.0 · <span class="mono">github.com/shazilkhan/sotto</span></small></span>
-                  <span class="lockup big" aria-hidden="true"><span class="word">sotto</span><span class="bar"></span></span>
+                  <span class="name"><span id="version">Offhand</span><small>Speech model: NVIDIA Parakeet TDT 0.6B v3, CC BY 4.0 · <span class="mono">github.com/shazilkhan/offhand</span></small></span>
+                  <span class="lockup big" aria-hidden="true"><span class="word">offhand</span><span class="bar"></span></span>
                 </div>
               </div>
             </section>

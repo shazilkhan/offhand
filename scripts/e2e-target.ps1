@@ -1,7 +1,7 @@
 param([string]$OutPath, [int]$CloseAfterMs)
 Add-Type -AssemblyName System.Windows.Forms
 $script:form = New-Object System.Windows.Forms.Form
-$form.Text = "Sotto E2E target"
+$form.Text = "Offhand E2E target"
 $form.TopMost = $true
 $form.Width = 640
 $form.Height = 200

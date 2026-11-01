@@ -2848,6 +2848,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "offhand"
+version = "0.6.0"
+dependencies = [
+ "cpal",
+ "log",
+ "ort",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-single-instance",
+ "transcribe-rs",
+ "ureq",
+ "windows",
+ "windows-numerics",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3896,27 +3917,6 @@ dependencies = [
  "wasm-bindgen",
  "web-sys",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "sotto"
-version = "0.5.0"
-dependencies = [
- "cpal",
- "log",
- "ort",
- "regex",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-single-instance",
- "transcribe-rs",
- "ureq",
- "windows",
- "windows-numerics",
 ]
 
 [[package]]

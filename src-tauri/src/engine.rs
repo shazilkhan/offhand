@@ -383,7 +383,7 @@ impl Engine {
         std::thread::sleep(TAIL);
         let Some((mut samples, mut rate)) = self.stop_recording() else { return };
         // End-to-end tests swap the mic audio for a known 16 kHz recording.
-        if let Some(wav) = std::env::var_os("SOTTO_TEST_WAV") {
+        if let Some(wav) = std::env::var_os("OFFHAND_TEST_WAV") {
             if let Ok(s) = transcribe_rs::audio::read_wav_samples(std::path::Path::new(&wav)) {
                 (samples, rate) = (s, TARGET_RATE);
             }
@@ -494,7 +494,7 @@ impl Engine {
     }
 }
 
-/// `sotto --bench file.wav` (16 kHz mono 16-bit): times model load and three
+/// `offhand --bench file.wav` (16 kHz mono 16-bit): times model load and three
 /// transcriptions, for checking speed on a given machine.
 pub fn bench(wav: &str) {
     let samples = match transcribe_rs::audio::read_wav_samples(std::path::Path::new(wav)) {

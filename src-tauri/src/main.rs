@@ -61,7 +61,7 @@ pub fn emit_state(app: &AppHandle) {
 }
 
 /// The app window is created on demand and destroyed on close, so no
-/// WebView2 processes run while Sotto sits in the tray. `view` is "home",
+/// WebView2 processes run while Offhand sits in the tray. `view` is "home",
 /// "dictionary" or "settings".
 pub fn open_app(app: &AppHandle, view: Option<&str>) {
     if let Some(w) = app.get_webview_window("main") {
@@ -78,7 +78,7 @@ pub fn open_app(app: &AppHandle, view: Option<&str>) {
         None => "index.html".to_string(),
     };
     let built = WebviewWindowBuilder::new(app, "main", WebviewUrl::App(url.into()))
-        .title("Sotto")
+        .title("Offhand")
         .inner_size(1100.0, 760.0)
         .min_inner_size(760.0, 540.0)
         .decorations(false)
@@ -436,8 +436,12 @@ fn main() {
     if args.len() == 1 && storage::relaunch_if_packaged() {
         return;
     }
+    let stuck = storage::adopt_old_name();
     logger::init();
-    log::info!("Sotto {} starting", env!("CARGO_PKG_VERSION"));
+    log::info!("Offhand {} starting", env!("CARGO_PKG_VERSION"));
+    for problem in stuck {
+        log::warn!("moving data from the old name: {problem}");
+    }
     #[cfg(not(debug_assertions))]
     if tauri::is_dev() {
         log::error!("built with plain cargo, so the app window has no pages; use scripts/release-local.ps1");
@@ -478,9 +482,10 @@ fn main() {
             let s = settings::load();
             if first_run {
                 let _ = settings::save(&s);
-                if s.start_with_windows {
-                    let _ = handle.autolaunch().enable();
-                }
+            }
+            let stale_entry = storage::start_entry_is_stale();
+            if s.start_with_windows && (first_run || stale_entry) {
+                let _ = handle.autolaunch().enable();
             }
 
             transcripts::maintain(s.history_days, now_secs());

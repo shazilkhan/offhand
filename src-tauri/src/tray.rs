@@ -29,8 +29,8 @@ pub fn build(app: &AppHandle, settings: &Settings) -> tauri::Result<()> {
     let status = MenuItem::with_id(app, "status", status_text(Status::Idle, settings), false, None::<&str>)?;
     let copy_last = MenuItem::with_id(app, "copy-last", "Copy last transcript", true, None::<&str>)?;
     let hands_free = CheckMenuItem::with_id(app, "hands-free", "Hands-free mode", true, settings.hands_free_mode, None::<&str>)?;
-    let open = MenuItem::with_id(app, "open", "Open Sotto", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit Sotto", true, None::<&str>)?;
+    let open = MenuItem::with_id(app, "open", "Open Offhand", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit Offhand", true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
         &[
@@ -48,7 +48,7 @@ pub fn build(app: &AppHandle, settings: &Settings) -> tauri::Result<()> {
 
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(icons::render(Icon::Idle))
-        .tooltip("Sotto")
+        .tooltip("Offhand")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id().as_ref() {
@@ -83,7 +83,7 @@ pub fn show_status(app: &AppHandle, status: Status, settings: &Settings) {
     let text = status_text(status, settings);
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         let _ = tray.set_icon(Some(icons::render(icon)));
-        let _ = tray.set_tooltip(Some(format!("Sotto: {text}")));
+        let _ = tray.set_tooltip(Some(format!("Offhand: {text}")));
     }
     if let Some(item) = app.try_state::<StatusItem>() {
         let _ = item.0.set_text(text);
@@ -97,7 +97,7 @@ pub fn show_download(app: &AppHandle, done: u64, total: u64) {
     let pct = if total > 0 { done * 100 / total } else { 0 };
     let text = format!("Downloading speech model… {pct}%");
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
-        let _ = tray.set_tooltip(Some(format!("Sotto: {text}")));
+        let _ = tray.set_tooltip(Some(format!("Offhand: {text}")));
     }
     if let Some(item) = app.try_state::<StatusItem>() {
         let _ = item.0.set_text(text);

@@ -15,7 +15,7 @@ type Settings = {
   historyDays: number;
   handsFreeMode: boolean;
   learnCorrections: boolean;
-  pillMode: "always" | "talking" | "never";
+  pillMode: "always" | "windowed" | "talking" | "never";
   pillX: number | null;
   pillY: number | null;
   cleanup: "off" | "light" | "smart";
@@ -222,7 +222,7 @@ function renderHome(s: UiState) {
       ? `The download stopped: ${dl.error}`
       : dl.active
         ? `Downloading the speech model: ${mb(dl.done)} of ${mb(dl.total)} (${pct}%). This happens once.`
-        : `Sotto needs a one-time ${mb(s.modelBytes)} download.`;
+        : `Offhand needs a one-time ${mb(s.modelBytes)} download.`;
     $("setup-retry").hidden = dl.active;
     $("setup-retry").textContent = dl.error ? "Try again" : "Download";
   }
@@ -345,7 +345,7 @@ function renderSettings(s: UiState) {
   $("tx-row").hidden = !st.keepTranscripts && n === 0;
   $("tx-count").textContent = n === 1 ? "1 dictation in history" : `${n.toLocaleString()} dictations in history`;
   $("tx-clear").hidden = n === 0;
-  $("version").textContent = `Sotto ${s.version}`;
+  $("version").textContent = `Offhand ${s.version}`;
 }
 
 function render(s: UiState) {

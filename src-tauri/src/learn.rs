@@ -365,7 +365,7 @@ fn first_sound(s: &str) -> Option<char> {
 }
 
 /// One slip of the finger: a letter added, dropped, changed or swapped.
-/// Learning that would teach Sotto the user's own typo.
+/// Learning that would teach Offhand the user's own typo.
 fn is_typo(heard: &str, word: &str) -> bool {
     let (a, b) = (letters(heard), letters(word));
     let d = levenshtein(&a, &b);

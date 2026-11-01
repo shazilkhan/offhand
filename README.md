@@ -1,4 +1,4 @@
-# Sotto
+# Offhand
 
 Push-to-talk dictation for Windows that runs entirely on your PC. Hold a
 hotkey, speak, let go, and the text is pasted wherever your cursor is. No
@@ -6,7 +6,7 @@ account, no subscription, and no audio leaves the machine. An optional
 Smart mode sends the text, never audio, to Claude Haiku for fixes that
 depend on meaning.
 
-Status: early (v0.5). Works on Windows 10/11 x64. English plus 24 European
+Status: early (v0.6). Works on Windows 10/11 x64. English plus 24 European
 languages (whatever Parakeet v3 supports).
 
 ## Why it's light
@@ -18,8 +18,9 @@ A dictation app runs all day, so idle cost matters more than anything else.
   5 MB private memory, 9 threads, and no measurable CPU.
 - **The floating pill is not a webview.** It's a layered window drawn with
   Direct2D in software, so no GPU driver is loaded into the process and the
-  GPU stays free for games. It repaints only when its state changes and
-  animates only while you talk.
+  GPU stays free for games. It repaints when its state changes and at a
+  10-second check-up that keeps it on screen, and animates only while you
+  talk.
 - **The mic opens only while the hotkey is held.** No privacy light, no
   Bluetooth headset stuck in call mode.
 - **The model loads while you speak** (about 1.8 s, hidden behind your
@@ -28,7 +29,7 @@ A dictation app runs all day, so idle cost matters more than anything else.
 - **Speed:** 12 s of speech transcribes in about 750 ms on CPU, with no GPU
   needed.
 - **The app window is opened on demand and destroyed on close.** Nothing
-  web-based runs while Sotto waits in the tray.
+  web-based runs while Offhand waits in the tray.
 
 ## Using it
 
@@ -44,17 +45,17 @@ The floating pill shows what's happening. Idle, it's a thin underline. While
 you talk, a pill lifts above it and the underline turns blue. The underline
 pulses while the text is written, then turns red if something's wrong. Drag
 the pill anywhere and it stays there. Right-click it for quick actions;
-double-click to open Sotto. It hides behind fullscreen apps unless you're
-talking.
+double-click to open Offhand. By default it's always on screen; Settings can
+keep it out of fullscreen apps, or show it only while you're talking.
 
 The app window has four pages:
 - **Home:** weekly words, pace and time saved, plus your latest dictations.
 - **History:** every dictation, grouped by day, with search. Copy one, copy
   what you said before cleanup, or delete it.
-- **Dictionary:** names and terms Sotto should spell your way, with what
+- **Dictionary:** names and terms Offhand should spell your way, with what
   speech recognition sometimes writes instead.
   - When you fix a name right after it's pasted ("Neve" to "Niamh"),
-    Sotto learns it and the pill says so.
+    Offhand learns it and the pill says so.
   - It also learns a number inside a name ("Nifty fifty Solutions" retyped
     as "Nifty 50 Solutions") and a name's capitals ("github" to "GitHub").
   - It only learns names and terms that sound like what was heard, so
@@ -136,9 +137,9 @@ See `docs/AI-CLEANUP-PLAN.md`.
 | App window | `index.html`, `src/` | Plain TypeScript and CSS. Geist is bundled locally. |
 
 Data lives in two places:
-- `%APPDATA%\Sotto\`: settings and dictionary.
+- `%APPDATA%\Offhand\`: settings and dictionary.
 - Windows Credential Manager: the API key for Smart, if you saved one.
-- `%LOCALAPPDATA%\Sotto\`: the model, `sotto.log`, history
+- `%LOCALAPPDATA%\Offhand\`: the model, `offhand.log`, history
   (`transcripts.jsonl`), and weekly stats (counts only).
 
 The log records timings and lengths, never transcript text.
@@ -146,7 +147,7 @@ The log records timings and lengths, never transcript text.
 Windows quietly redirects AppData for anything started by a packaged app (one
 from the Microsoft Store or an MSIX installer, such as the Claude desktop
 app) into that app's private folder. Data saved that way disappears as soon
-as Sotto is started normally. Sotto checks for this at startup by writing a
+as Offhand is started normally. Offhand checks for this at startup by writing a
 probe file. If its files are being redirected, it restarts itself through
 Explorer, outside the package. It also moves back, and merges, anything an
 earlier run left in a package's private folder (`src-tauri/src/storage.rs`).
@@ -173,11 +174,11 @@ Node 20+ and pnpm.
 
 ```bash
 pnpm install
-pnpm tauri build --no-bundle     # exe at src-tauri/target/release/sotto.exe (never plain cargo build)
+pnpm tauri build --no-bundle     # exe at src-tauri/target/release/offhand.exe (never plain cargo build)
 pnpm tauri build                 # NSIS installer
 ```
 
-To rebuild and restart a running Sotto in one step, run
+To rebuild and restart a running Offhand in one step, run
 `scripts/release-local.ps1`. It always builds through Tauri (plain
 `cargo build --release` leaves out the app window's pages, so the window
 tries `localhost`) and starts the new copy through Explorer.
@@ -186,9 +187,9 @@ Checks:
 - `cd src-tauri && cargo test` runs the unit tests.
 - `scripts/e2e.ps1` runs an end-to-end paste test. It takes keyboard focus
   for about 10 seconds.
-- `sotto.exe --bench file.wav` (16 kHz mono 16-bit) prints model load and
+- `offhand.exe --bench file.wav` (16 kHz mono 16-bit) prints model load and
   transcription times.
-- `sotto.exe --pill-demo`, sent to a running Sotto, walks the pill through its
+- `offhand.exe --pill-demo`, sent to a running Offhand, walks the pill through its
   states.
 
 Icons come from `scripts/make-icons.ps1`. It needs Geist ExtraBold as a TTF
@@ -197,11 +198,11 @@ from the [Geist release](https://github.com/vercel/geist-font/releases).
 ## Tuning text cleanup
 
 - **Collect:** keep "Keep history on this PC" on in Settings. Each
-  dictation is appended to `%LOCALAPPDATA%\Sotto\transcripts.jsonl` with the
+  dictation is appended to `%LOCALAPPDATA%\Offhand\transcripts.jsonl` with the
   raw and cleaned text, the app's exe name (never window titles), the speech
   length and the timing. It's off by default, nothing is uploaded, and
   "Delete all" removes the file.
-- **Measure:** `sotto.exe --bench-cleanup eval/cases.jsonl` runs the
+- **Measure:** `offhand.exe --bench-cleanup eval/cases.jsonl` runs the
   hand-written cases and prints every failure. Point it at
   `transcripts.jsonl` to see what cleanup changes in real dictations.
 - **Smart:** add `--smart` to send the cases that have a cue to the API

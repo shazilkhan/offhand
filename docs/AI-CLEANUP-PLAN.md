@@ -161,14 +161,14 @@ They're kept out of settings.json and never logged.
   - dictionary editor
   - Clean or Polish
 - History stores raw and cleaned text.
-- `sotto --bench-cleanup cases.jsonl` runs every case and prints diffs,
+- `offhand --bench-cleanup cases.jsonl` runs every case and prints diffs,
   timings and fallbacks.
 
 ## Phases
 
 | # | Work | Size | Done when |
 | --- | --- | --- | --- |
-| 0 | **Measure first.** Opt-in "keep raw transcripts on this PC" (JSONL in `%LOCALAPPDATA%\Sotto`, off by default, has a clear button), plus the bench harness. | ½ day + a few days of use | 40–60 real examples, each tagged with what's wrong |
+| 0 | **Measure first.** Opt-in "keep raw transcripts on this PC" (JSONL in `%LOCALAPPDATA%\Offhand`, off by default, has a clear button), plus the bench harness. | ½ day + a few days of use | 40–60 real examples, each tagged with what's wrong |
 | 1 | Light tier + dictionary + app context | 1 day | Tests pass; real examples improve with no false edits |
 | 2 | Smart tier: both clients, prompt, checks, timeout, DPAPI, settings UI, raw/clean history | 2–3 days | Bench passes; worst-case latency stays under the cap |
 | 3 | Bake-off: Groq models, Anthropic models, local Ollama models on a mid-range GPU. p50/p95 latency from the user's real location, meaning kept, fillers removed, false edits, cost. | ½–1 day | A default is picked |

@@ -523,7 +523,7 @@ fn show(s: &str) -> String {
     s.replace('\n', "\\n")
 }
 
-/// `sotto --bench-cleanup cases.jsonl [--smart]`: runs every case through
+/// `offhand --bench-cleanup cases.jsonl [--smart]`: runs every case through
 /// Light cleanup (or Smart, which calls the API for cases with a cue) with
 /// the user's saved dictionary plus any in the case, and prints failures,
 /// changes and timing.

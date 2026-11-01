@@ -1,5 +1,5 @@
 //! Dictation history kept on this PC: one JSON line per dictation in
-//! %LOCALAPPDATA%\Sotto\transcripts.jsonl. Powers the History page, and is
+//! %LOCALAPPDATA%\Offhand\transcripts.jsonl. Powers the History page, and is
 //! the same format `--bench-cleanup` reads for tuning. Never uploaded; the
 //! user can turn it off, set how long to keep it, or delete it.
 

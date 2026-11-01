@@ -1,4 +1,4 @@
-# Draws Sotto's app icon (icons/source.png, then `pnpm tauri icon`) and the
+# Draws Offhand's app icon (icons/source.png, then `pnpm tauri icon`) and the
 # tray glyphs (icons/tray/*.png) from Geist ExtraBold. Needs the static TTF:
 #   gh release download -R vercel/geist-font -p "geist-font-*.zip"
 #   .\scripts\make-icons.ps1 -Font path\to\Geist-ExtraBold.ttf
@@ -20,10 +20,10 @@ function RoundRect($x, $y, $w, $h, $r) {
   $p.AddArc($x + $w - $d, $y + $h - $d, $d, $d, 0, 90); $p.AddArc($x, $y + $h - $d, $d, $d, 90, 90)
   $p.CloseFigure(); $p
 }
-# The "s" outline, scaled so its ink is $height tall and centred on $cx, top at $top.
+# The "o" outline, scaled so its ink is $height tall and centred on $cx, top at $top.
 function Glyph($cx, $top, $height) {
   $p = New-Object System.Drawing.Drawing2D.GraphicsPath
-  $p.AddString('s', $family, 0, 1000, (New-Object System.Drawing.PointF 0, 0), [System.Drawing.StringFormat]::GenericTypographic)
+  $p.AddString('o', $family, 0, 1000, (New-Object System.Drawing.PointF 0, 0), [System.Drawing.StringFormat]::GenericTypographic)
   $b = $p.GetBounds(); $k = $height / $b.Height
   $m = New-Object System.Drawing.Drawing2D.Matrix
   $m.Translate($cx, $top); $m.Scale($k, $k); $m.Translate(-($b.X + $b.Width / 2), -$b.Y)

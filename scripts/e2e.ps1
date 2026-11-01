@@ -1,11 +1,11 @@
 # End-to-end check: hold the hotkey over a throwaway text box and confirm the
 # transcript is pasted and the clipboard restored. Mic audio is swapped for a
-# TTS clip via SOTTO_TEST_WAV. It takes keyboard focus for ~10 s, so don't
+# TTS clip via OFFHAND_TEST_WAV. It takes keyboard focus for ~10 s, so don't
 # run it while using the PC. Aborts without sending keys if focus is lost.
 param([int]$HoldMs = 1200)
 $ErrorActionPreference = 'Stop'
-$exe = Join-Path $PSScriptRoot '..\src-tauri\target\release\sotto.exe'
-$work = Join-Path $env:TEMP 'sotto-e2e'
+$exe = Join-Path $PSScriptRoot '..\src-tauri\target\release\offhand.exe'
+$work = Join-Path $env:TEMP 'offhand-e2e'
 New-Item -ItemType Directory -Force $work | Out-Null
 $out = Join-Path $work 'out.txt'
 $wav = Join-Path $work 'speech.wav'
@@ -40,11 +40,11 @@ public class W {
 
 $previous = [W]::GetForegroundWindow()
 
-Get-Process sotto -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process offhand -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Milliseconds 500
-$env:SOTTO_TEST_WAV = $wav
+$env:OFFHAND_TEST_WAV = $wav
 Start-Process $exe
-Remove-Item Env:SOTTO_TEST_WAV
+Remove-Item Env:OFFHAND_TEST_WAV
 Start-Sleep -Seconds 2
 
 Set-Clipboard -Value 'ORIGINAL CLIPBOARD 123'
@@ -77,7 +77,7 @@ if ($fg -ne $hwnd) {
 }
 if ($previous -ne [IntPtr]::Zero) { [W]::Focus($previous) }
 "--- log"
-Get-Content "$env:LOCALAPPDATA\Sotto\sotto.log" -Tail 6
+Get-Content "$env:LOCALAPPDATA\Offhand\offhand.log" -Tail 6
 # Leave a normal instance running, not the test one.
-Get-Process sotto -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process offhand -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Process $exe

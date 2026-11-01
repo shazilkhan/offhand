@@ -27,7 +27,8 @@ pub struct Settings {
     pub hands_free_mode: bool,
     /// Learn spellings from edits made right after a dictation is pasted.
     pub learn_corrections: bool,
-    /// "always", "talking" (only while dictating) or "never".
+    /// "always", "windowed" (not over fullscreen apps unless dictating),
+    /// "talking" (only while dictating) or "never".
     pub pill_mode: String,
     /// Where the pill's underline sits, in screen pixels. `None` is bottom
     /// centre of the primary screen. Owned by the pill; the UI never sets it.
@@ -64,7 +65,7 @@ fn env_dir(var: &str) -> PathBuf {
     std::env::var_os(var)
         .map(PathBuf::from)
         .unwrap_or_else(std::env::temp_dir)
-        .join("Sotto")
+        .join("Offhand")
 }
 
 /// Roaming: settings follow the user.

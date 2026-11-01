@@ -1,6 +1,6 @@
 [package]
-name = "sotto"
-version = "0.5.0"
+name = "offhand"
+version = "0.6.0"
 description = "Push-to-talk dictation for Windows that runs fully on your machine"
 edition = "2021"
 license = "MIT"

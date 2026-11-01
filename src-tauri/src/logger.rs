@@ -14,7 +14,7 @@ struct FileLogger {
 impl Log for FileLogger {
     fn enabled(&self, meta: &Metadata) -> bool {
         // Our own crate logs at info; dependencies (ort, tauri) only at warn.
-        meta.level() <= Level::Warn || meta.target().starts_with("sotto")
+        meta.level() <= Level::Warn || meta.target().starts_with("offhand")
     }
 
     fn log(&self, record: &Record) {
@@ -44,7 +44,7 @@ impl Log for FileLogger {
 pub fn init() {
     let dir = crate::settings::data_dir();
     let _ = std::fs::create_dir_all(&dir);
-    let path = dir.join("sotto.log");
+    let path = dir.join("offhand.log");
     let too_big = std::fs::metadata(&path).map(|m| m.len() > MAX_LOG_BYTES).unwrap_or(false);
     let file = OpenOptions::new()
         .create(true)
