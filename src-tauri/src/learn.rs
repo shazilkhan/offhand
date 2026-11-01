@@ -1,12 +1,15 @@
 //! Learns spellings from the user's own fixes. A message is often several
 //! dictations in a row, proofread and fixed before it's sent, so the text
-//! box is watched from the first paste until the message is sent (the
-//! pastes leave the box), or two minutes after the last paste. Then every
-//! paste is lined up with the box, and a name the user retyped in place
-//! ("Neve" -> "Niamh") becomes a Dictionary entry. A chat box empties the
-//! moment a message is sent, so the box is read at each Enter (before the
-//! app gets it) and twice a second, keeping the latest reading that held
-//! still.
+//! box is watched from the first paste until the message is sent, or two
+//! minutes after the box last changed. A name the user retyped in place
+//! ("Neve" -> "Niamh") becomes a Dictionary entry as soon as it's finished:
+//! at Enter (read before the app gets the key), the moment the message is
+//! sent, or once the text has stopped changing.
+//!
+//! Apps show all sorts of things once the dictation has gone: nothing, a
+//! "Type a message" placeholder, the page's address. Only a reading with the
+//! dictation still in it counts, so none of those can replace the user's
+//! edit. See `Watch`.
 //!
 //! Privacy: only the box that was pasted into is read, only until then,
 //! never a password field, and nothing is kept except the learned word
@@ -27,19 +30,27 @@ use windows::Win32::UI::Accessibility::{
     UIA_TextPatternId, UIA_ValuePatternId,
 };
 
-/// How long after the last paste to keep watching a box that wasn't sent.
+/// How long to keep watching a box that wasn't sent, after it last changed.
 const WATCH_FOR: Duration = Duration::from_secs(120);
+/// How long the text has to stop changing before an edit counts as finished.
+/// Long enough not to catch a word half typed.
+const SETTLE: Duration = Duration::from_millis(2500);
+/// A box that shows something else for this long has really changed.
+const HELD_STILL: Duration = Duration::from_millis(400);
 /// The longest Enter is held back while the field is read.
 const ENTER_WAIT: Duration = Duration::from_millis(150);
 /// How often the field is read while a paste is watched, to catch the fix
 /// before a Send button clears it.
 const POLL: Duration = Duration::from_millis(500);
-/// Readings in a row that fail before a box is given up on.
-const MAX_MISSES: u32 = 6;
+/// Readings in a row that fail before a box is given up on. Generous:
+/// Chromium apps only switch on their accessibility once they're asked.
+const MAX_MISSES: u32 = 20;
 const MAX_FIELD_CHARS: i32 = 20_000;
-const MAX_LEARN_PER_PASTE: usize = 2;
-const MAX_LEARN: usize = 4;
+const MAX_LEARN_PER_PASTE: usize = 4;
+const MAX_LEARN: usize = 8;
 
+/// What was heard, and the word the user typed in its place.
+type Fix = (String, String);
 type OnLearn = Box<dyn Fn(String, String) + Send + Sync>;
 static ON_LEARN: OnceLock<OnLearn> = OnceLock::new();
 
@@ -127,39 +138,34 @@ pub fn watch(pasted: &str) {
     }
 }
 
-/// Watches the focused box until the message is sent (the pastes leave
-/// the box), the box can't be read, or `WATCH_FOR` passes with no new
-/// paste. Then looks for fixes. A paste into a different box ends the
-/// watch too, and is returned to be watched next.
+/// Watches the focused box, feeding `Watch` what it shows. A paste into a
+/// different box ends the watch, and is returned to be watched next.
 unsafe fn watch_box(automation: &IUIAutomation, first: String, rx: &Receiver<Cmd>) -> Option<String> {
-    let Ok(el) = automation.GetFocusedElement() else {
+    let Ok(mut el) = automation.GetFocusedElement() else {
         log::info!("learning: couldn't find the text box");
         return None;
     };
     let kind = el.CurrentControlType().map(|t| t.0).unwrap_or(0);
     let class: String = el.CurrentClassName().map(|c| c.to_string()).unwrap_or_default().chars().take(30).collect();
     log::info!("learning: watching a text box (type {kind}, class '{class}')");
-    let mut pastes = vec![first];
-    let mut deadline = Instant::now() + WATCH_FOR;
-    // The latest good reading: the box at an Enter, or once it held still
-    // between two reads.
-    let mut good: Option<(String, &str)> = None;
-    let mut prev: Option<String> = None;
-    let mut held = false;
+    let learn = |fixes: Vec<Fix>| {
+        for (heard, word) in fixes {
+            log::info!("learned a spelling ({} chars)", word.chars().count());
+            if let Some(on_learn) = ON_LEARN.get() {
+                on_learn(heard, word);
+            }
+        }
+    };
+    let mut watch = Watch::new(first, Some(crate::spell::known), Instant::now());
+    let mut readable = false;
     let mut misses = 0;
     let mut next = None;
     loop {
-        let left = deadline.saturating_duration_since(Instant::now());
-        if left.is_zero() {
-            break;
-        }
-        match rx.recv_timeout(left.min(POLL)) {
+        match rx.recv_timeout(POLL) {
             Ok(Cmd::Snapshot(done)) => {
                 let text = read_field(&el);
                 let _ = done.send(());
-                if let Some(text) = text.filter(|t| has_words(t)) {
-                    good = Some((text, "at Enter"));
-                }
+                learn(watch.at_enter(text));
             }
             Ok(Cmd::Paste(p)) => {
                 let same = automation
@@ -170,34 +176,40 @@ unsafe fn watch_box(automation: &IUIAutomation, first: String, rx: &Receiver<Cmd
                     next = Some(p);
                     break;
                 }
-                pastes.push(p);
-                deadline = Instant::now() + WATCH_FOR;
+                watch.add_paste(p, Instant::now());
             }
             Ok(Cmd::Stop) => return None,
             Err(RecvTimeoutError::Timeout) => {
                 let text = read_field(&el);
-                misses = if text.is_some() { 0 } else { misses + 1 };
-                if misses >= MAX_MISSES && good.is_none() {
-                    break;
+                if text.is_some() && !readable && misses > 0 {
+                    log::info!("learning: the box answered after {misses} tries");
                 }
-                if let Some(t) = text.as_ref().filter(|t| prev.as_ref() == Some(t)) {
-                    if has_words(t) {
-                        good = Some((t.clone(), "while it held still"));
-                    }
-                    // The dictation was in the box and now isn't: sent or cleared.
-                    let holds = pastes.iter().any(|p| holds_paste(p, t));
-                    if held && !holds {
+                readable |= text.is_some();
+                if !readable {
+                    misses += 1;
+                    if misses >= MAX_MISSES {
                         break;
                     }
-                    held |= holds;
+                    // Chromium apps answer with an empty panel until their
+                    // accessibility is on, so ask again for the real box.
+                    if let Ok(now) = automation.GetFocusedElement() {
+                        el = now;
+                    }
                 }
-                prev = text;
+                let (fixes, over) = watch.poll(text, Instant::now());
+                learn(fixes);
+                if over {
+                    break;
+                }
             }
             Err(RecvTimeoutError::Disconnected) => break,
         }
     }
-    if let Some(on_learn) = ON_LEARN.get() {
-        check(&pastes, read_field(&el), good, Some(crate::spell::known), on_learn.as_ref());
+    learn(watch.finish(read_field(&el)));
+    if !readable {
+        log::info!("learning: couldn't read the text box");
+    } else if let Some(line) = watch.report() {
+        log::info!("learning: {line}");
     }
     next
 }
@@ -231,47 +243,141 @@ fn has_words(text: &str) -> bool {
     text.split_whitespace().next().is_some()
 }
 
-/// Uses the field as it is now, unless the pastes have gone from it (the
-/// message was sent, or the box was cleared) and there's an earlier good
-/// reading. Logs why nothing was learned, without any of the text.
-fn check(
-    pastes: &[String],
-    now: Option<String>,
-    good: Option<(String, &str)>,
+/// One watched box: the dictations pasted into it, what it last showed and
+/// what's been learned from it. It's fed readings of the box and decides
+/// which ones to look at and when the watch is over.
+struct Watch {
+    pastes: Vec<String>,
     known: Option<KnownWords>,
-    on_learn: &dyn Fn(String, String),
-) {
-    let holds = |f: &str| pastes.iter().any(|p| holds_paste(p, f));
-    let (field, when) = match (now, good) {
-        (Some(now), _) if holds(&now) => (now, "now"),
-        (_, Some(good)) => good,
-        (Some(now), None) => (now, "now"),
-        (None, None) => return log::info!("learning: couldn't read the text box"),
-    };
-    let mut found: Vec<(String, String)> = Vec::new();
-    let mut skipped: Vec<&str> = Vec::new();
-    for p in pastes {
-        let (fixes, why) = corrections(p, &field, known);
-        for fix in fixes {
-            if !found.contains(&fix) {
-                found.push(fix);
+    /// The latest reading, when it first appeared, and whether the
+    /// dictation is in it.
+    latest: Option<(String, Instant, bool)>,
+    /// The newest reading with the dictation in it, not looked at yet.
+    fresh: Option<String>,
+    looked_at: Option<String>,
+    /// The dictation has been seen in the box.
+    held: bool,
+    deadline: Instant,
+    learned: Vec<Fix>,
+    /// Why the last reading looked at gave no fix.
+    skipped: Vec<&'static str>,
+}
+
+impl Watch {
+    fn new(first: String, known: Option<KnownWords>, now: Instant) -> Self {
+        Self {
+            pastes: vec![first],
+            known,
+            latest: None,
+            fresh: None,
+            looked_at: None,
+            held: false,
+            deadline: now + WATCH_FOR,
+            learned: Vec::new(),
+            skipped: Vec::new(),
+        }
+    }
+
+    fn add_paste(&mut self, pasted: String, now: Instant) {
+        self.pastes.push(pasted);
+        self.deadline = now + WATCH_FOR;
+    }
+
+    /// The dictation is in `text`, as pasted or with a fix made to it. A
+    /// fixed short dictation shares no words with what was pasted ("Supa
+    /// base" -> "Supabase"), so holding the words isn't enough.
+    fn has_dictation(&self, text: &str) -> bool {
+        has_words(text)
+            && self.pastes.iter().any(|p| holds_paste(p, text) || !corrections(p, text, self.known).0.is_empty())
+    }
+
+    /// Lines every dictation up with `text`; returns fixes not seen before.
+    fn look_at(&mut self, text: String) -> Vec<Fix> {
+        if self.looked_at.as_ref() == Some(&text) {
+            return Vec::new();
+        }
+        let mut new: Vec<Fix> = Vec::new();
+        self.skipped.clear();
+        for p in &self.pastes {
+            let (fixes, why) = corrections(p, &text, self.known);
+            self.skipped.extend(why);
+            for fix in fixes {
+                if !self.learned.contains(&fix) && !new.contains(&fix) {
+                    new.push(fix);
+                }
             }
         }
-        skipped.extend(why);
+        new.truncate(MAX_LEARN);
+        self.learned.extend(new.iter().cloned());
+        self.looked_at = Some(text);
+        new
     }
-    found.truncate(MAX_LEARN);
-    if found.is_empty() {
-        let words: usize = pastes.iter().map(|p| p.split_whitespace().count()).sum();
-        log::info!(
-            "learning: no fix found ({} dictations, {words} words pasted, {} in the box, read {when}){}",
-            pastes.len(),
-            field.split_whitespace().count(),
-            tally(&skipped)
-        );
+
+    /// The box at an Enter, read before the app gets the key: whatever is
+    /// in it now is finished, so fixes are learned at once.
+    fn at_enter(&mut self, text: Option<String>) -> Vec<Fix> {
+        match text.filter(|t| self.has_dictation(t)) {
+            Some(text) => {
+                self.held = true;
+                self.fresh = None;
+                self.look_at(text)
+            }
+            None => Vec::new(),
+        }
     }
-    for (heard, word) in found {
-        log::info!("learned a spelling ({} chars, read {when})", word.chars().count());
-        on_learn(heard, word);
+
+    /// A regular reading. Returns new fixes, and true when the watch is over:
+    /// the dictation has left the box, or it has gone quiet for too long.
+    fn poll(&mut self, text: Option<String>, now: Instant) -> (Vec<Fix>, bool) {
+        if let Some(text) = text {
+            if self.latest.as_ref().is_none_or(|l| l.0 != text) {
+                let has = self.has_dictation(&text);
+                if has {
+                    self.fresh = Some(text.clone());
+                }
+                if self.latest.is_some() {
+                    self.deadline = now + WATCH_FOR;
+                }
+                self.latest = Some((text, now, has));
+            }
+        }
+        if now >= self.deadline {
+            return (self.take_fresh(), true);
+        }
+        let Some((_, since, has)) = self.latest else { return (Vec::new(), false) };
+        let still = now.saturating_duration_since(since);
+        if has {
+            self.held |= still >= HELD_STILL;
+            let fixes = if still >= SETTLE { self.take_fresh() } else { Vec::new() };
+            return (fixes, false);
+        }
+        if self.held && still >= HELD_STILL {
+            return (self.take_fresh(), true);
+        }
+        (Vec::new(), false)
+    }
+
+    fn take_fresh(&mut self) -> Vec<Fix> {
+        self.fresh.take().map(|t| self.look_at(t)).unwrap_or_default()
+    }
+
+    /// The watch is over: anything not yet looked at, and the box as it is.
+    fn finish(&mut self, text: Option<String>) -> Vec<Fix> {
+        let mut fixes = self.take_fresh();
+        if let Some(text) = text.filter(|t| self.has_dictation(t)) {
+            fixes.extend(self.look_at(text));
+        }
+        fixes
+    }
+
+    /// Why nothing was learned, without any of the text.
+    fn report(&self) -> Option<String> {
+        if !self.learned.is_empty() {
+            return None;
+        }
+        let words: usize = self.pastes.iter().map(|p| p.split_whitespace().count()).sum();
+        let field = self.looked_at.as_ref().map(|t| t.split_whitespace().count()).unwrap_or(0);
+        Some(format!("no fix found ({} dictations, {words} words pasted, {field} in the box){}", self.pastes.len(), tally(&self.skipped)))
     }
 }
 
@@ -622,7 +728,13 @@ fn corrections(pasted: &str, field: &str, known: Option<KnownWords>) -> (Vec<(St
         }
     }
     let mid_sentence = |j: usize| j > 0 && !f_raw[j - 1].ends_with(['.', '!', '?', ':']);
-    found.extend(pairs.iter().filter_map(|&(pi, fj)| case_fix(p[pi], f[fj], mid_sentence(fj), &unknown)));
+    for &(pi, fj) in &pairs {
+        match case_fix(p[pi], f[fj], mid_sentence(fj), &unknown) {
+            Some(fix) => found.push(fix),
+            None if p[pi] != f[fj] => skipped.push("only capitals changed"),
+            None => {}
+        }
+    }
     found.dedup();
     found.truncate(MAX_LEARN_PER_PASTE);
     (found, skipped)
@@ -767,18 +879,106 @@ mod tests {
         assert!(find_corrections("All set. shazil will call.", "All set. Shazil will call.", Some(fake_known)).is_empty());
     }
 
+    /// Replays a box: each step is seconds since the paste and what it showed.
+    fn replay(pasted: &str, steps: &[(f32, &str)]) -> (Watch, Vec<Fix>, bool) {
+        let start = Instant::now();
+        let mut w = Watch::new(pasted.to_string(), None, start);
+        let (mut got, mut over) = (Vec::new(), false);
+        for (secs, text) in steps {
+            let (fixes, done) = w.poll(Some(text.to_string()), start + Duration::from_secs_f32(*secs));
+            got.extend(fixes);
+            over |= done;
+        }
+        (w, got, over)
+    }
+
+    fn fix(heard: &str, word: &str) -> Vec<Fix> {
+        vec![(heard.to_string(), word.to_string())]
+    }
+
+    const PASTED: &str = "We moved the auth to superbase last week.";
+    const FIXED: &str = "We moved the auth to Supabase last week.";
+
+    #[test]
+    fn a_placeholder_never_replaces_the_edit() {
+        // Teams: fixed, Enter, then the box shows its placeholder.
+        let (mut w, got, _) = replay(PASTED, &[(0.5, PASTED), (1.0, PASTED)]);
+        assert!(got.is_empty());
+        assert_eq!(w.at_enter(Some(FIXED.to_string())), fix("superbase", "Supabase"));
+        let now = Instant::now() + Duration::from_secs(5);
+        assert!(w.poll(Some("Type a message".to_string()), now).0.is_empty());
+        let (fixes, over) = w.poll(Some("Type a message".to_string()), now + Duration::from_secs(1));
+        assert!(fixes.is_empty());
+        assert!(over);
+    }
+
+    #[test]
+    fn the_address_bar_turning_into_a_url_ends_the_watch() {
+        let (mut w, _, _) = replay("search for superbase pricing", &[(0.5, "search for superbase pricing")]);
+        assert_eq!(w.at_enter(Some("search for Supabase pricing".to_string())), fix("superbase", "Supabase"));
+        let now = Instant::now() + Duration::from_secs(5);
+        w.poll(Some("https://example.com/search".to_string()), now);
+        assert!(w.poll(Some("https://example.com/search".to_string()), now + Duration::from_secs(1)).1);
+    }
+
+    #[test]
+    fn a_box_that_is_never_sent_learns_once_the_edit_settles() {
+        let (_, got, over) = replay(PASTED, &[(0.5, PASTED), (1.0, PASTED), (5.0, FIXED), (6.0, FIXED), (7.0, FIXED), (7.5, FIXED), (8.0, FIXED)]);
+        assert_eq!(got, fix("superbase", "Supabase"));
+        assert!(!over);
+    }
+
+    #[test]
+    fn a_word_half_typed_is_not_learned() {
+        let half = "We moved the auth to Supa last week.";
+        let (_, got, _) = replay(PASTED, &[(1.0, PASTED), (2.0, half), (3.0, half), (4.0, FIXED), (5.0, FIXED), (6.0, FIXED), (6.5, FIXED)]);
+        assert_eq!(got, fix("superbase", "Supabase"));
+    }
+
+    #[test]
+    fn a_send_button_right_after_the_edit_still_learns() {
+        // No Enter, and the box clears before the edit has settled.
+        let (_, got, over) = replay(PASTED, &[(0.5, PASTED), (1.0, PASTED), (3.0, FIXED), (3.5, ""), (4.0, ""), (4.5, "")]);
+        assert_eq!(got, fix("superbase", "Supabase"));
+        assert!(over);
+    }
+
+    #[test]
+    fn sending_straight_after_the_paste_ends_the_watch_at_once() {
+        let start = Instant::now();
+        let mut w = Watch::new(PASTED.to_string(), None, start);
+        w.at_enter(Some(PASTED.to_string()));
+        w.poll(Some("\n".to_string()), start + Duration::from_secs(1));
+        assert!(w.poll(Some("\n".to_string()), start + Duration::from_millis(1500)).1);
+    }
+
     #[test]
     fn checks_every_dictation_in_the_message() {
-        // Two dictations, then the first one fixed just before sending.
-        let pastes = vec!["We moved the auth to superbase last week.".to_string(), "Next we ship the billing page.".to_string()];
-        let field = "We moved the auth to Supabase last week. Next we ship the billing page.";
-        let learned = Mutex::new(Vec::new());
-        check(&pastes, Some(field.into()), None, None, &|h, w| learned.lock().unwrap().push((h, w)));
-        assert_eq!(*learned.lock().unwrap(), vec![("superbase".to_string(), "Supabase".to_string())]);
-        // Sent: the box is empty now, so the reading at Enter is used.
-        let learned = Mutex::new(Vec::new());
-        check(&pastes, Some("\n".into()), Some((field.into(), "at Enter")), None, &|h, w| learned.lock().unwrap().push((h, w)));
-        assert_eq!(learned.lock().unwrap().len(), 1);
+        let start = Instant::now();
+        let mut w = Watch::new(PASTED.to_string(), None, start);
+        w.add_paste("Next we ship the billing page.".to_string(), start);
+        let field = format!("{FIXED} Next we ship the billing page.");
+        assert_eq!(w.at_enter(Some(field.clone())), fix("superbase", "Supabase"));
+        // Reading the same fix again learns nothing new.
+        assert!(w.at_enter(Some(field)).is_empty());
+    }
+
+    #[test]
+    fn a_short_dictation_fixed_on_its_own_counts() {
+        let start = Instant::now();
+        let mut w = Watch::new("Supa base".to_string(), None, start);
+        assert_eq!(w.at_enter(Some("Supabase".to_string())), fix("Supa base", "Supabase"));
+    }
+
+    #[test]
+    fn a_box_still_being_edited_stays_watched() {
+        let start = Instant::now();
+        let mut w = Watch::new(PASTED.to_string(), None, start);
+        w.poll(Some(PASTED.to_string()), start + WATCH_FOR - Duration::from_secs(1));
+        let later = format!("{PASTED} More text.");
+        assert!(!w.poll(Some(later.clone()), start + WATCH_FOR - Duration::from_millis(500)).1);
+        assert!(!w.poll(Some(later.clone()), start + WATCH_FOR + Duration::from_secs(5)).1);
+        assert!(w.poll(Some(later), start + WATCH_FOR * 2).1);
     }
 
     #[test]
