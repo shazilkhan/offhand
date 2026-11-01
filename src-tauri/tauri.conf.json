@@ -17,6 +17,10 @@
   },
   "bundle": {
     "active": true,
+    "publisher": "Shazil Khan",
+    "homepage": "https://github.com/shazilkhan/offhand",
+    "shortDescription": "Push-to-talk dictation for Windows that runs on your PC",
+    "license": "MIT",
     "targets": ["nsis"],
     "icon": [
       "icons/32x32.png",
@@ -25,7 +29,7 @@
       "icons/icon.ico"
     ],
     "windows": {
-      "nsis": { "installMode": "currentUser" }
+      "nsis": { "installMode": "currentUser", "installerHooks": "windows/hooks.nsh" }
     }
   }
 }

@@ -484,7 +484,7 @@ fn main() {
                 let _ = settings::save(&s);
             }
             let stale_entry = storage::start_entry_is_stale();
-            if s.start_with_windows && (first_run || stale_entry) {
+            if s.start_with_windows && stale_entry {
                 let _ = handle.autolaunch().enable();
             }
 

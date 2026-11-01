@@ -1,0 +1,11 @@
+{
+  "bundle": {
+    "resources": {
+      "target/redist/DirectML.dll": "DirectML.dll",
+      "target/redist/msvcp140.dll": "msvcp140.dll",
+      "target/redist/msvcp140_1.dll": "msvcp140_1.dll",
+      "target/redist/vcruntime140.dll": "vcruntime140.dll",
+      "target/redist/vcruntime140_1.dll": "vcruntime140_1.dll"
+    }
+  }
+}

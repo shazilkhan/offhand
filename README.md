@@ -9,6 +9,21 @@ depend on meaning.
 Status: early (v0.6). Works on Windows 10/11 x64. English plus 24 European
 languages (whatever Parakeet v3 supports).
 
+## Install
+
+[Download the latest installer](https://github.com/shazilkhan/offhand/releases/latest)
+(`Offhand_x.y.z_x64-setup.exe`) and run it. No account or admin rights needed.
+Offhand opens and downloads its speech model once, about 670 MB. Then hold
+**Ctrl + Win**, talk, and let go.
+
+- **Windows SmartScreen will warn you.** The installer isn't code-signed yet,
+  so choose **More info**, then **Run anyway**. Each release lists the file's
+  SHA-256 if you want to check it.
+- **Updating:** there's no auto-update yet. Install a newer version over the
+  old one and your history, Dictionary and settings stay.
+- **Uninstalling** keeps your data in `%LOCALAPPDATA%\Offhand` and
+  `%APPDATA%\Offhand`. Delete those folders to remove it too.
+
 ## Why it's light
 
 A dictation app runs all day, so idle cost matters more than anything else.
@@ -175,13 +190,16 @@ Node 20+ and pnpm.
 ```bash
 pnpm install
 pnpm tauri build --no-bundle     # exe at src-tauri/target/release/offhand.exe (never plain cargo build)
-pnpm tauri build                 # NSIS installer
 ```
 
 To rebuild and restart a running Offhand in one step, run
 `scripts/release-local.ps1`. It always builds through Tauri (plain
 `cargo build --release` leaves out the app window's pages, so the window
 tries `localhost`) and starts the new copy through Explorer.
+
+To make the installer, run `scripts/build-installer.ps1`. It adds the files a
+clean PC may lack (DirectML and the Visual C++ runtime) and prints the file's
+SHA-256. Run `scripts/release-local.ps1` once first.
 
 Checks:
 - `cd src-tauri && cargo test` runs the unit tests.
@@ -216,12 +234,13 @@ from the [Geist release](https://github.com/vercel/geist-font/releases).
 2. "Only hears you": echo cancellation against system audio plus voice
    enrollment, so other voices and speaker output are ignored even without
    muting.
-3. Signed installer and auto-update.
+3. Code signing and auto-update.
 
 ## License
 
 MIT, see [LICENSE](LICENSE). The speech model is a separate download under
-its own license (CC BY 4.0).
+its own license (CC BY 4.0). The installer includes Microsoft's DirectML and
+Visual C++ runtime files, under their own redistribution terms.
 
 ## Credits
 

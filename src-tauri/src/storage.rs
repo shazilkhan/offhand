@@ -76,8 +76,9 @@ fn run_value(name: PCWSTR) -> Option<String> {
     (found == ERROR_SUCCESS).then(|| String::from_utf16_lossy(&buf[..(size as usize / 2).saturating_sub(1)]))
 }
 
-/// True when the start-with-Windows entry has to be written again: it still
-/// has the old name (removed here), or points at an exe that has moved.
+/// True when the start-with-Windows entry has to be written: it's missing
+/// (a new install, or an upgrade took it), still has the old name (removed
+/// here), or points at an exe that has moved.
 pub fn start_entry_is_stale() -> bool {
     let Ok(exe) = std::env::current_exe() else { return false };
     let exe = exe.to_string_lossy().to_lowercase();
@@ -85,7 +86,7 @@ pub fn start_entry_is_stale() -> bool {
     if old {
         let _ = unsafe { RegDeleteKeyValueW(HKEY_CURRENT_USER, RUN_KEY, w!("Sotto")) };
     }
-    old || run_value(w!("Offhand")).is_some_and(|v| !v.to_lowercase().contains(&exe))
+    old || run_value(w!("Offhand")).is_none_or(|v| !v.to_lowercase().contains(&exe))
 }
 
 /// The package this process runs inside, if any. Offhand has none of its own.
